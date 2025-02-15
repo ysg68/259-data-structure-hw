@@ -2,6 +2,7 @@
 #For full credit, provide answers for at least 8/11 questions
 
 #List names of students collaborating with: 
+# Yushan Guo
 
 ### SETUP: RUN THIS BEFORE STARTING ----------
 
@@ -39,6 +40,10 @@ load("rs_data.RData")
 
 #ANSWER
 
+rs_joined_orig <- full_join(rs_old, rs_new, by = c('Song', 'Artist'))
+nrow(rs_joined_orig)
+
+View(rs_joined_orig)
 
 
 ### Question 2 ---------- 
@@ -51,6 +56,17 @@ load("rs_data.RData")
 
 #ANSWER
 
+# Add 'Source' varible to both datasets
+rs_new <- rs_new %>% mutate(Source = 'New')
+rs_old <- rs_old %>% mutate(Source = 'Old')
+
+# Change rank/year into integers for the old dataset
+rs_old$Rank <- as.integer(rs_old$Rank)
+rs_old$Year <- as.integer(rs_old$Year)
+
+# Join the datasets
+rs_all <- bind_rows(rs_old, rs_new)
+
 
 ### Question 3 ----------
 
@@ -62,6 +78,26 @@ load("rs_data.RData")
 # Use both functions to make all artists/song lowercase and remove any extra spaces
 
 #ANSWER
+
+# Remove 'The's from 'Song' & 'Artist'
+rs_all <- rs_all %>% mutate(Artist = str_remove_all(Artist, 'The '), 
+                            Song = str_remove_all(Song, 'The '))
+
+# Replace '&' with 'and'
+rs_all <- rs_all %>% mutate(Artist = str_replace_all(Artist, '&', 'and'),
+                            Song = str_replace_all(Song, '&', 'and'))
+
+# Remove all punctuations
+rs_all <- rs_all %>% mutate(Artist = str_remove_all(Artist, "[:punct:]"),
+                            Song = str_remove_all(Song, "[:punct:]"))
+
+# Transform into lower cases
+rs_all <- rs_all %>% mutate(Artist = str_to_lower(Artist),
+                            Song = str_to_lower(Song))
+
+# Remove extra spaces
+rs_all <- rs_all %>% mutate(Artist = str_trim(Artist, side = 'both'),
+                            Song = str_trim(Song, side = 'both'))
 
 
 ### Question 4 ----------
@@ -76,6 +112,14 @@ load("rs_data.RData")
 
 #ANSWER
 
+# Split into two and join
+rs_all_new <- subset(rs_all, Source == 'New')
+rs_all_old <- subset(rs_all, Source == 'Old')
+rs_joined <- full_join(rs_all_old, rs_all_new, by = c('Song', 'Artist'),
+                       suffix = c('_Old', '_New'))
+
+nrow(rs_joined)
+
 
 ### Question 5 ----------
 
@@ -89,6 +133,15 @@ load("rs_data.RData")
 
 #ANSWER
 
+# Remove the variable "Source"
+rs_joined <- rs_joined %>% select(-c(Source_Old, Source_New))
+
+# Remove any rows where Rank_New or Rank_Old is NA
+rs_joined <- rs_joined %>% filter(!(is.na(rs_joined$Rank_New) | is.na(rs_joined$Rank_Old)))
+
+# Calculate rank_change and sort
+rs_joined <- rs_joined %>% mutate(Rank_Change = Rank_Old - Rank_New) %>% arrange(Rank_Change)
+
 
 ### Question 6 ----------
 
@@ -100,6 +153,14 @@ load("rs_data.RData")
 
 #ANSWER
 
+# Turn all the unit digits of the years into 0 and turn them into strings
+rs_joined <- rs_joined %>% mutate(Decade = as.character(floor(Year_New / 10) * 10))
+
+# Add 's' to the decades
+rs_joined <- rs_joined %>% mutate(Decade = paste0(Decade, 's'))
+
+# Group by decade and summarize the mean rank_change for songs released in each decade
+rs_joined %>% group_by(Decade) %>% summarise(mean = mean(Rank_Change)) # Looks like 1980s improved the most
 
 
 ### Question 7 ----------
@@ -111,6 +172,12 @@ load("rs_data.RData")
 
 #ANSWER
 
+fct_count(rs_joined$Decade)
+
+# Limit Decade to '1960s', '1970s', '1980s', and 'Other'
+rs_joined <- rs_joined %>% mutate(Decade2 = fct_lump(Decade, n = 3))
+
+fct_count(rs_joined$Decade2, prop = T)
 
 
 ### Question 8 ---------- 
@@ -121,6 +188,10 @@ load("rs_data.RData")
 
 #ANSWER
 
+top20 <- read_csv('top_20.csv')
+
+top20 <- top20 %>% mutate(Release = parse_date_time(Release, "dmy"))
+
 
 ### Question 9 --------
 
@@ -130,6 +201,7 @@ load("rs_data.RData")
 
 #ANSWER
 
+top20 <- top20 %>% pivot_wider(names_from = Style, values_from = Value)
 
 
 ### Question 10 ---------
@@ -144,6 +216,22 @@ load("rs_data.RData")
 
 #ANSWER
 
+# Merge two datasets
+top20 <- left_join(top20, rs_joined, by = c('Song', 'Artist'))
+
+# Create another variable called 'Month' in top20
+top20 <- top20 %>% mutate(Month = month(top20$Release, label = TRUE))
+
+# Create 'Season' from the months
+top20 <- top20 %>% mutate(Season = case_when(
+  str_detect(Month, str_c(c('Mar', 'Apr', 'May'), collapse = "|")) ~ 'Spring',
+  str_detect(Month, str_c(c('Jun', 'Jul', 'Aug'), collapse = "|")) ~ 'Summer',
+  str_detect(Month, str_c(c('Sep', 'Oct', 'Nov'), collapse = "|")) ~ 'Autumn',
+  str_detect(Month, str_c(c('Dec', 'Jan', 'Feb'), collapse = "|")) ~ 'Winter'
+))
+
+# Count songs in season
+fct_count(top20$Season)
 
 
 ### Question 11 ---------
@@ -155,5 +243,9 @@ load("rs_data.RData")
 
 #ANSWER
 
+# Create the 'Quality' variable based on the detection of 'm'
+top20 <- top20 %>% mutate(Quality = ifelse(str_detect(Key, 'm'), 'Minor', 'Major'))
 
+# Select the top-rank minor-key song
+top20 %>% filter(Quality == 'Minor') %>% slice_min(Rank_New)
 
