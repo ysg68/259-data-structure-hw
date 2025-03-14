@@ -1,5 +1,5 @@
 #PSYC 259 Homework 3 - Data Structure
-#For full credit, provide answers for at least 8/11 questions
+#For full credit, provide answers for at least 8/11 questions (11/11)
 
 #List names of students collaborating with: 
 # Yushan Guo
@@ -220,7 +220,7 @@ top20 <- top20 %>% pivot_wider(names_from = Style, values_from = Value)
 top20 <- left_join(top20, rs_joined, by = c('Song', 'Artist'))
 
 # Create another variable called 'Month' in top20
-top20 <- top20 %>% mutate(Month = month(top20$Release, label = TRUE))
+top20 <- top20 %>% mutate(Month = month(top20$Release, label = TRUE)) #don't need top20$ since you incl top20 with pipes at the beginning
 
 # Create 'Season' from the months
 top20 <- top20 %>% mutate(Season = case_when(
@@ -233,6 +233,13 @@ top20 <- top20 %>% mutate(Season = case_when(
 # Count songs in season
 fct_count(top20$Season)
 
+#Mcomment: Looks good, see alternative code below - 
+top20 <- top20 %>% mutate(Release_Month = month(Release_Date, label = T),
+                          Season = fct_collapse(Release_Month,
+                                                Winter = c("Dec", "Jan","Feb"),
+                                                Spring = c("Mar","Apr","May"),
+                                                Summer = c("Jun", "Jul","Aug"),
+                                                Fall = c("Sep", "Oct", "Nov")))
 
 ### Question 11 ---------
 
